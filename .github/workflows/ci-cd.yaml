@@ -1,0 +1,54 @@
+name: CI/CD Pipeline - GKE Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GAR_LOCATION: ${{ secrets.GAR_LOCATION }}
+  GKE_CLUSTER: ${{ secrets.GKE_CLUSTER_NAME }}
+  GKE_LOCATION: ${{ secrets.GKE_LOCATION }}
+  IMAGE_NAME: gke-sample-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Authenticate Docker to Artifact Registry
+        run: gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          cd app
+          docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/gke-apps/$IMAGE_NAME:${{ github.sha }} .
+
+      - name: Run Trivy Security Scan
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/gke-apps/$IMAGE_NAME:${{ github.sha }}
+          exit-code: '0'  # Do not fail pipeline at this stage
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Docker image
+        run: docker push $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/gke-apps/$IMAGE_NAME:${{ github.sha }}
+
+      - name: Get GKE credentials
+        run: gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_LOCATION --project $PROJECT_ID
+
+      - name: Helm upgrade/install deployment
+        run: |
+          helm upgrade --install my-sample-app-dev ./helm/sample-app \
+          --set image.repository=$GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/gke-apps/$IMAGE_NAME \
+          --set image.tag=${{ github.sha }}
