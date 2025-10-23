@@ -1,0 +1,100 @@
+---
+# Source: sample-app/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-sample-app
+  labels:
+    helm.sh/chart: sample-app-0.1.0
+    app.kubernetes.io/name: sample-app
+    app.kubernetes.io/instance: my-sample-app
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: sample-app/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-sample-app
+  labels:
+    helm.sh/chart: sample-app-0.1.0
+    app.kubernetes.io/name: sample-app
+    app.kubernetes.io/instance: my-sample-app
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: sample-app
+    app.kubernetes.io/instance: my-sample-app
+---
+# Source: sample-app/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-sample-app
+  labels:
+    helm.sh/chart: sample-app-0.1.0
+    app.kubernetes.io/name: sample-app
+    app.kubernetes.io/instance: my-sample-app
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sample-app
+      app.kubernetes.io/instance: my-sample-app
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: sample-app-0.1.0
+        app.kubernetes.io/name: sample-app
+        app.kubernetes.io/instance: my-sample-app
+        app.kubernetes.io/version: "1.16.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: my-sample-app
+      containers:
+        - name: sample-app
+          image: "nginx:latest"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+---
+# Source: sample-app/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "my-sample-app-test-connection"
+  labels:
+    helm.sh/chart: sample-app-0.1.0
+    app.kubernetes.io/name: sample-app
+    app.kubernetes.io/instance: my-sample-app
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['my-sample-app:80']
+  restartPolicy: Never
