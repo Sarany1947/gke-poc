@@ -35,7 +35,7 @@ jobs:
           docker build -t $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/gke-apps/$IMAGE_NAME:${{ github.sha }} .
 
       - name: Run Trivy Security Scan
-        uses: aquasecurity/trivy-action@v0.20.0
+        uses: aquasecurity/trivy-action@v0.19.0
         with:
           image-ref: $GAR_LOCATION-docker.pkg.dev/$PROJECT_ID/gke-apps/$IMAGE_NAME:${{ github.sha }}
           exit-code: '0'  # Do not fail pipeline at this stage
